@@ -16,6 +16,7 @@ tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 animated_group = pygame.sprite.Group()
 decor_group = pygame.sprite.Group()
+interface = pygame.sprite.Group()
 
 #####################################
 

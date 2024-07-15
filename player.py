@@ -7,7 +7,8 @@ from math import ceil
 
 player_images = {
     "idle": load_images("animated/player/idle"),
-    "running": load_images("animated/player/running")
+    "running": load_images("animated/player/running"),
+    "hurt": load_images("animated/player/hurt")
 }
 
 
@@ -23,7 +24,9 @@ class Player(pygame.sprite.Sprite):
         self.is_airborne = False
         self.charging_jump = False
         self.player_in_door = False
+        self.is_dead = False
         self.state = "idle"
+        self.hp = 5
 
         self.gravity, self.friction = 0.3, -0.1
         self.position, self.velocity = pygame.math.Vector2(pos_x, pos_y), pygame.math.Vector2(0, 0)
@@ -38,11 +41,12 @@ class Player(pygame.sprite.Sprite):
     def move(self, dt, frame):
         self.check_contact()
         self.animate(frame)
-        self.adjust_face_direction()
-        self.horizontal_movement(dt)
         self.vertical_movement(dt)
-        self.adjust_coll_boxes()
-        self.interact()
+        if not self.is_dead:
+            self.adjust_face_direction()
+            self.horizontal_movement(dt)
+            self.adjust_coll_boxes()
+            self.interact()
 
     def horizontal_movement(self, dt):
         self.acceleration.x = 0
@@ -82,6 +86,8 @@ class Player(pygame.sprite.Sprite):
         if self.colliding["top"] and self.velocity.y < 0:
             self.velocity.y = -self.velocity.y * self.friction
         elif self.colliding["bottom"] and self.velocity.y > 0:
+            if self.velocity.y > 9:
+                self.hurt()
             self.velocity.y = -self.velocity.y * self.friction
             self.acceleration.y = 0
         else:
@@ -104,6 +110,13 @@ class Player(pygame.sprite.Sprite):
         if not self.is_airborne:
             self.velocity.y -= 10
             self.is_airborne = True
+
+    def hurt(self):
+        self.hp -= 1
+        self.state = "hurt"
+        if self.hp <= 0:
+            self.state = "dead"
+            self.is_dead = True
 
     def check_contact(self):
         # Проверка дополнительных хитбоксов на коллизию
@@ -138,7 +151,7 @@ class Player(pygame.sprite.Sprite):
     def interact(self):
         # Взаимодействие с анимированными объектами
         for sprite in animated_group:
-            if sprite.rect.colliderect(self.rect):
+            if sprite.rect.colliderect(self.rect) and player_group.has(self):
                 if not sprite.anim_finished:
                     sprite.animate()
                     sprite.anim_finished = True
@@ -146,8 +159,9 @@ class Player(pygame.sprite.Sprite):
                 if sprite.anim_finished:
                     sprite.animate(True)
                     sprite.anim_finished = False
-            if sprite.event_rect.colliderect(self.rect):
+            if sprite.event_rect.colliderect(self.rect) and player_group.has(self):
                 self.player_in_door = True
+                print("touch")
 
     def adjust_coll_boxes(self):
         # Корректирование положения дополнительных хитбоксов
@@ -175,9 +189,9 @@ class Player(pygame.sprite.Sprite):
             self.state = "running"
 
     def animate(self, frame=0):
-        self.frame = frame
         self.update_state()
-        self.image = player_images[self.state][frame % len(player_images[self.state])]
+        self.frame = frame % len(player_images[self.state])
+        self.image = player_images[self.state][self.frame]
 
 
 class Camera:
@@ -204,3 +218,19 @@ class Camera:
     # сдвинуть объект obj на смещение камеры
     def apply(self, obj, direction):
         obj.rect.y += self.offset.y * direction
+
+
+def draw_interface(screen, time, hp):
+    text = [f'Здоровье {hp}',
+            f'Время {round(time, 2)}']
+    font = pygame.font.Font(None, 30)
+    text_coord = 50
+    for line in text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+
